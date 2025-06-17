@@ -18,7 +18,8 @@ jobs:
 
       - name: Build with Maven
         run: mvn -q package -DskipTests
-	working-directory: minisrv
+        working-directory: minisrv
+
 
       - name: Start server (virtual threads mode)
         run: |
