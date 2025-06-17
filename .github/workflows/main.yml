@@ -6,6 +6,12 @@ jobs:
   latency:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
+    # Svi `run:` koraci će se po defaultu izvršavati unutar minisrv direktorija
+    defaults:
+      run:
+        working-directory: minisrv
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,8 +24,6 @@ jobs:
 
       - name: Build with Maven
         run: mvn -q package -DskipTests
-        working-directory: minisrv
-
 
       - name: Start server (virtual threads mode)
         run: |
@@ -28,4 +32,19 @@ jobs:
           sleep 6
 
       - name: Install ApacheBench
+        # ovaj korak nije vezan za minisrv kod, pa ga možemo pustiti izvan working-directory
+        working-directory: ${{ github.workspace }}
         run: sudo apt-get update && sudo apt-get install -y apache2-utils
+
+      - name: Run load test
+        run: |
+          ab -n 3000 -c 200 http://127.0.0.1:8080/io > ab.out
+          LAT=$(grep "95%" ab.out | awk '{print $2}')
+          echo "p95 latency = $LAT ms"
+          if [ "$LAT" -gt 150 ]; then
+            echo "::error::p95 latency too high ($LAT ms)"
+            exit 1
+          fi
+
+      - name: Stop server
+        run: kill $(cat pid.txt)
